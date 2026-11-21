@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhytoGuard AI — CNN & RAG Plant Disease Diagnostic System</title>
+  <style>
+    :root {
+      --bg: #0b1310;
+      --card: #12201a;
+      --card-border: #1f372d;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --text: #ecfdf5;
+      --muted: #9ca3af;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: radial-gradient(circle at top right, #132a21, var(--bg)); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+    header {
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(18, 32, 26, 0.85);
+      backdrop-filter: blur(10px);
+      padding: 18px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-badge {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: linear-gradient(135deg, #10b981, #047857);
+      display: grid; place-items: center; font-weight: 800; font-size: 20px;
+    }
+    .sdg-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      font-size: 12px; padding: 6px 12px; border-radius: 999px;
+      background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7; font-weight: 600;
+    }
+    .container { max-width: 1320px; margin: 28px auto; padding: 0 24px; display: grid; grid-template-columns: 1.05fr 1.25fr; gap: 24px; }
+    @media (max-width: 980px) { .container { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--card-border);
+      border-radius: 16px; padding: 24px; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+    }
+    .card h2 { font-size: 18px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .dropzone {
+      border: 2px dashed #2d5444; border-radius: 14px; padding: 32px 20px;
+      text-align: center; cursor: pointer; transition: 0.2s; background: rgba(11, 19, 16, 0.5);
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: rgba(16, 185, 129, 0.08); }
+    .preview-box { margin-top: 16px; display: none; text-align: center; }
+    .preview-box img { max-height: 220px; border-radius: 12px; border: 2px solid var(--accent); }
+    .btn {
+      width: 100%; margin-top: 16px; padding: 13px 18px; border: none; border-radius: 10px;
+      background: var(--accent); color: #052e16; font-weight: 700; font-size: 15px;
+      cursor: pointer; transition: 0.2s;
+    }
+    .btn:hover { background: var(--accent-hover); color: #fff; }
+    .pipeline-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+    .stat-box { background: rgba(0,0,0,0.28); border: 1px solid var(--card-border); padding: 12px; border-radius: 10px; text-align: center; }
+    .stat-box .val { font-size: 18px; font-weight: 800; color: #34d399; }
+    .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .result-banner {
+      padding: 16px; border-radius: 12px; background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 18px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .bar-row { margin-bottom: 10px; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .bar-bg { height: 8px; background: #0b1310; border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 99px; }
+    .rag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .rag-item { background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); padding: 12px; border-radius: 10px; }
+    .rag-item h4 { font-size: 12px; color: #6ee7b7; text-transform: uppercase; margin-bottom: 5px; }
+    .rag-item p { font-size: 13px; line-height: 1.5; color: #d1fae5; }
+    .chat-box {
+      margin-top: 18px; border-top: 1px solid var(--card-border); padding-top: 16px;
+    }
+    .chat-log {
+      height: 210px; overflow-y: auto; background: #09100d; border: 1px solid var(--card-border);
+      border-radius: 10px; padding: 14px; font-size: 13px; line-height: 1.55; margin-bottom: 10px;
+    }
+    .msg { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; white-space: pre-line; }
+    .msg.user { background: rgba(16, 185, 129, 0.18); border-left: 3px solid var(--accent); }
+    .msg.ai { background: rgba(255, 255, 255, 0.04); border-left: 3px solid #60a5fa; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input {
+      flex: 1; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--card-border);
+      background: #09100d; color: var(--text); font-size: 13px;
+    }
+    .chat-input-row button {
+      padding: 0 18px; border-radius: 8px; border: none; background: var(--accent);
+      color: #052e16; font-weight: 700; cursor: pointer;
+    }
+    .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      font-size: 11px; padding: 5px 10px; border-radius: 999px; background: #192e25;
+      border: 1px solid #2b4c3e; color: #a7f3d0; cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-badge">🌿</div>
+      <div>
+        <h1 style="font-size: 20px;">PhytoGuard AI — Plant Disease Detection & RAG System</h1>
+        <p style="font-size: 12px; color: var(--muted);">Deep CNN (128×128 RGB, 38 Classes) + Retrieval-Augmented Generation Knowledge Engine</p>
+      </div>
+    </div>
+    <div class="sdg-pills">
+      <span class="pill">UN-SDG 2: Zero Hunger</span>
+      <span class="pill">UN-SDG 15: Life on Land</span>
+      <span class="pill">Validation Acc: 96.56%</span>
+      <span class="pill">38 PlantVillage Classes</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Left Column: Leaf Upload & CNN Architecture Pipeline -->
+    <section class="card">
+      <h2>1. Leaf Image Upload & CNN Tensor Pipeline</h2>
+      <p class="subtitle">Upload any plant leaf photo (.jpg, .png). Automatically resized to 128×128 RGB tensor for 38-class Softmax inference.</p>
+
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('leafInput').click()">
+        <p style="font-size: 15px; font-weight: 600; color: #6ee7b7;">Click or Drag & Drop a Leaf Photo Here</p>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Tip: Use images from the <b>sample_test_leaves/</b> or <b>Dataset1/</b> folder</p>
+        <input type="file" id="leafInput" accept="image/*" style="display:none" onchange="previewFile(this.files[0])" />
+      </div>
+
+      <div class="preview-box" id="previewBox">
+        <img id="previewImg" src="" alt="Leaf Preview" />
+        <p id="fileNameLabel" style="font-size: 12px; color: var(--muted); margin-top: 6px;"></p>
+      </div>
+
+      <button class="btn" id="analyzeBtn" onclick="runDiagnosis()">Run CNN Diagnosis + RAG Retrieval</button>
+
+      <div class="pipeline-grid">
+        <div class="stat-box">
+          <div class="val" id="statResolution">128×128</div>
+          <div class="lbl">Input Tensor (RGB)</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="statCanopy">--%</div>
+          <div class="lbl">Healthy Chlorophyll</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="statLesion">--%</div>
+          <div class="lbl">Lesion / Necrosis Index</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 18px;">
+        <h3 style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">Top-3 Softmax Class Probabilities (38 Outputs):</h3>
+        <div id="probBars">
+          <p style="font-size: 12px; color: var(--muted);">Upload a leaf photo to view CNN Softmax probabilities.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: AI RAG Pathology Report & Interactive Chat -->
+    <section class="card">
+      <h2>2. AI RAG Plant Pathology Knowledge System</h2>
+      <p class="subtitle">TF-IDF Vector Space Retrieval over 38 PlantVillage Crop & Disease Profiles with grounded treatment protocols.</p>
+
+      <div class="result-banner" id="resultBanner">
+        <div>
+          <div style="font-size: 11px; color: #6ee7b7; text-transform: uppercase; font-weight: 700;">Detected Diagnosis</div>
+          <div style="font-size: 20px; font-weight: 800; margin-top: 2px;" id="diagTitle">Awaiting Leaf Upload...</div>
+          <div style="font-size: 12px; color: var(--muted); margin-top: 2px;" id="diagPathogen">Pathogen: --</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 24px; font-weight: 800; color: #34d399;" id="diagConf">--%</div>
+          <div style="font-size: 11px; color: var(--muted);">Confidence</div>
+        </div>
+      </div>
+
+      <div class="rag-grid">
+        <div class="rag-item">
+          <h4>Clinical Foliar Symptoms</h4>
+          <p id="ragSymptoms">Upload a leaf photo or ask a question below to retrieve clinical symptoms.</p>
+        </div>
+        <div class="rag-item">
+          <h4>Etiology & Environmental Causes</h4>
+          <p id="ragCauses">Retrieved pathogen triggers and humidity/temperature conditions appear here.</p>
+        </div>
+        <div class="rag-item">
+          <h4>Organic & Biological Control</h4>
+          <p id="ragOrganic">OMRI-certified bio-fungicide and botanical treatment protocols.</p>
+        </div>
+        <div class="rag-item">
+          <h4>Chemical & Prevention Protocol</h4>
+          <p id="ragChemical">Systemic fungicide rotation and crop sanitation guidelines.</p>
+        </div>
+      </div>
+
+      <!-- Interactive RAG Assistant -->
+      <div class="chat-box">
+        <h3 style="font-size: 14px; margin-bottom: 8px;">Interactive AI RAG Agronomist Assistant</h3>
+        <div class="chip-row">
+          <span class="chip" onclick="askPreset('What is the organic and chemical treatment for this disease?')">💊 Treatment Protocol</span>
+          <span class="chip" onclick="askPreset('What are the early symptoms and causes of this infection?')">🔍 Symptoms & Causes</span>
+          <span class="chip" onclick="askPreset('How can farmers prevent this disease next season?')">🛡️ Prevention & SDG Impact</span>
+          <span class="chip" onclick="askPreset('How to treat Tomato Late Blight vs Potato Early Blight?')">🍅 Compare Blight Types</span>
+        </div>
+        <div class="chat-log" id="chatLog">
+          <div class="msg ai"><b>AI RAG System:</b> Ready! Upload a leaf image above for automatic CNN + RAG diagnosis, or ask any question across all 38 PlantVillage crop diseases.</div>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="Ask the RAG system about symptoms, dosages, organic sprays, or prevention..." onkeydown="if(event.key==='Enter') sendRagQuery()" />
+          <button onclick="sendRagQuery()">Ask RAG</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let selectedFile = null;
+    let activeClass = null;
+
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) previewFile(e.dataTransfer.files[0]);
+    });
+
+    function previewFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('previewBox').style.display = 'block';
+        document.getElementById('fileNameLabel').textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function runDiagnosis() {
+      if (!selectedFile) {
+        alert('Please select or drop a leaf image first!');
+        return;
+      }
+      const btn = document.getElementById('analyzeBtn');
+      btn.textContent = 'Running 128×128 CNN & RAG Retrieval...';
+      btn.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/api/predict', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        activeClass = data.predicted_class;
+        document.getElementById('diagTitle').textContent = data.rag_profile.disease;
+        document.getElementById('diagPathogen').textContent = 'Pathogen: ' + data.rag_profile.pathogen;
+        document.getElementById('diagConf').textContent = data.confidence + '%';
+
+        document.getElementById('statCanopy').textContent = data.telemetry.healthy_canopy_pct + '%';
+        document.getElementById('statLesion').textContent = data.telemetry.necrotic_lesion_pct + '%';
+
+        // Render Top-3 Softmax Bars
+        const barsHtml = data.top_predictions.map(p => `
+          <div class="bar-row">
+            <div class="bar-label">
+              <span>${p.class.replace('___', ' — ').replaceAll('_', ' ')}</span>
+              <b>${p.confidence}%</b>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${Math.min(100, p.confidence)}%"></div></div>
+          </div>
+        `).join('');
+        document.getElementById('probBars').innerHTML = barsHtml;
+
+        // Populate RAG Cards
+        document.getElementById('ragSymptoms').textContent = data.rag_profile.symptoms;
+        document.getElementById('ragCauses').textContent = data.rag_profile.causes;
+        document.getElementById('ragOrganic').textContent = data.rag_profile.organic_treatment;
+        document.getElementById('ragChemical').textContent = data.rag_profile.chemical_treatment + ' | Prevention: ' + data.rag_profile.prevention;
+
+        // Append RAG summary to chat log
+        appendChat('ai', data.rag_summary + `\n\n[Top Vector Match: ${data.rag_sources[0].class_key} | Similarity Score: ${data.rag_sources[0].score}]`);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.textContent = 'Run CNN Diagnosis + RAG Retrieval';
+        btn.disabled = false;
+      }
+    }
+
+    function appendChat(role, text) {
+      const log = document.getElementById('chatLog');
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      div.textContent = (role === 'user' ? 'You: ' : 'AI RAG: ') + text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function askPreset(q) {
+      document.getElementById('chatInput').value = q;
+      sendRagQuery();
+    }
+
+    async function sendRagQuery() {
+      const input = document.getElementById('chatInput');
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+      appendChat('user', q);
+
+      const res = await fetch('/api/rag_chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, active_class: activeClass })
+      });
+      const data = await res.json();
+      if (data.answer) {
+        const srcList = data.retrieved_sources.map(s => `${s.class_key} (${s.score})`).join(', ');
+        appendChat('ai', `${data.answer}\n\n[Retrieved RAG Vectors: ${srcList}]`);
+      }
+    }
+  </script>
+</body>
+</html>
